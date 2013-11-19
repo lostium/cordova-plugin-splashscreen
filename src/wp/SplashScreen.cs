@@ -65,5 +65,10 @@ namespace WPCordovaClassLib.Cordova.Commands
                 this.popup.IsOpen = false;
             });
         }
+
+        public void setStatusText(string options)
+        {
+            
+        }
     }
 }

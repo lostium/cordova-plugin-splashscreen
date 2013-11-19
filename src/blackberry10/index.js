@@ -24,5 +24,8 @@ module.exports = {
         var result = new PluginResult(args, env);
         window.qnx.webplatform.getApplication().windowVisible = true;
         result.ok(undefined, false);
+    },
+     setStatusText: function (success, fail, args, env) {        
+        result.ok(undefined, false);
     }
 };

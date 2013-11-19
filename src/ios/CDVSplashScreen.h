@@ -24,10 +24,12 @@
     UIActivityIndicatorView* _activityView;
     UIImageView* _imageView;
     NSString* _curImageName;
+    UILabel* _statusLabel;
     BOOL _visible;
 }
 
 - (void)show:(CDVInvokedUrlCommand*)command;
 - (void)hide:(CDVInvokedUrlCommand*)command;
+- (void)setStatusText:(CDVInvokedUrlCommand*)command;
 
 @end

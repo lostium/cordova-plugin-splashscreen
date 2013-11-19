@@ -31,6 +31,8 @@ public class SplashScreen extends CordovaPlugin {
             this.webView.postMessage("splashscreen", "hide");
         } else if (action.equals("show")){
             this.webView.postMessage("splashscreen", "show");
+        } else if (action.equals("setStatusText")){
+            
         }
         else {
             return false;

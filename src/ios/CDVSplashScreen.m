@@ -87,6 +87,14 @@
     // Set the frame & image later.
     _imageView = [[UIImageView alloc] init];
     [parentView addSubview:_imageView];
+	
+	CGRect labelFrame = CGRectMake( 0, 40, parentView.bounds.size.width, 30 );
+	_statusLabel = [[UILabel alloc] initWithFrame: labelFrame];
+	[_statusLabel setText: @""];
+	[_statusLabel setTextColor: [UIColor blackColor]];
+	[_statusLabel setTextAlignment:NSTextAlignmentCenter];
+	
+	[parentView addSubview: _statusLabel];
 
     id showSplashScreenSpinnerValue = [self.commandDelegate.settings objectForKey:[@"ShowSplashScreenSpinner" lowercaseString]];
     // backwards compatibility - if key is missing, default to true
@@ -106,9 +114,12 @@
 {
     [_imageView removeFromSuperview];
     [_activityView removeFromSuperview];
+		[_statusLabel removeFromSuperview];
     _imageView = nil;
     _activityView = nil;
     _curImageName = nil;
+	  _statusLabel = nil;
+	
 
     self.viewController.view.userInteractionEnabled = YES;  // re-enable user interaction upon completion
     [self.viewController.view removeObserver:self forKeyPath:@"frame"];
@@ -228,5 +239,14 @@
         }];
     }
 }
+
+- (void) setStatusText:(CDVInvokedUrlCommand*)command
+{
+	
+	NSString *text = [command.arguments objectAtIndex:0];
+	_statusLabel.text = text;
+	
+}
+
 
 @end
