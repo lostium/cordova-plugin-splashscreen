@@ -17,16 +17,22 @@
  * specific language governing permissions and limitations
  * under the License.
  *
-*/
+ */
 
 var exec = require('cordova/exec');
 
 var splashscreen = {
-    show:function() {
+    show: function () {
         exec(null, null, "SplashScreen", "show", []);
     },
-    hide:function() {
+    hide: function () {
         exec(null, null, "SplashScreen", "hide", []);
+    },
+    setStatusText: function (text) {
+        //exec(null, null, "SplashScreen", "setStatusText", [text]);
+    },
+    setProgress: function (progress) {
+        exec(null, null, "SplashScreen", "setProgress", [progress]);
     }
 };
 
