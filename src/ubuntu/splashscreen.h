@@ -1,5 +1,7 @@
 /*
  *
+ * Copyright 2013 Canonical Ltd.
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,15 +21,32 @@
  *
 */
 
-var exec = require('cordova/exec');
+#ifndef SPLASHSCREEN_H
+#define SPLASHSCREEN_H
 
-var splashscreen = {
-    show:function() {
-        exec(null, null, "SplashScreen", "show", []);
-    },
-    hide:function() {
-        exec(null, null, "SplashScreen", "hide", []);
+#include <QtCore>
+#include <cplugin.h>
+
+class Splashscreen: public CPlugin {
+    Q_OBJECT
+public:
+    explicit Splashscreen(Cordova *cordova);
+
+    virtual const QString fullName() override {
+        return Splashscreen::fullID();
     }
+
+    virtual const QString shortName() override {
+        return "SplashScreen";
+    }
+
+    static const QString fullID() {
+        return "SplashScreen";
+    }
+
+public slots:
+    void show(int, int);
+    void hide(int, int);
 };
 
-module.exports = splashscreen;
+#endif // SPLASHSCREEN_H

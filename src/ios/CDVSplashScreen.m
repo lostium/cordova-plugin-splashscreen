@@ -18,8 +18,11 @@
  */
 
 #import "CDVSplashScreen.h"
+#import <Cordova/CDVViewController.h>
+#import <Cordova/CDVScreenOrientationDelegate.h>
 
 #define kSplashScreenDurationDefault 0.25f
+
 
 @implementation CDVSplashScreen
 
@@ -88,13 +91,40 @@
     _imageView = [[UIImageView alloc] init];
     [parentView addSubview:_imageView];
 	
-	CGRect labelFrame = CGRectMake( 0, 40, parentView.bounds.size.width, 30 );
+	CGRect labelFrame = CGRectMake( 0, 0, parentView.bounds.size.width, 20 );
 	_statusLabel = [[UILabel alloc] initWithFrame: labelFrame];
 	[_statusLabel setText: @""];
-	[_statusLabel setTextColor: [UIColor blackColor]];
+	[_statusLabel setTextColor: [UIColor whiteColor]];
+	[_statusLabel setBackgroundColor: [UIColor colorWithRed:229.0/255.0 green:52.0/255.0 blue:70.0/255.0 alpha:1]];
+
 	[_statusLabel setTextAlignment:NSTextAlignmentCenter];
+	[_statusLabel setFont:[UIFont systemFontOfSize:11]];
+	_statusLabelVisible = FALSE;
+
 	
-	[parentView addSubview: _statusLabel];
+	_progressView = [[UIProgressView alloc] init];
+
+	
+   NSString *bundleId = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleIdentifier"];
+	 UIColor *progressColor =[UIColor colorWithRed:229.0/255.0 green:52.0/255.0 blue:70.0/255.0 alpha:1];
+	if([bundleId hasPrefix:@"com.lostium.guiapunto.Barcelona"]){
+		progressColor = nil;
+		//24, 159, 214
+		progressColor = [UIColor colorWithRed:24.0/255.0 green:159.0/255.0 blue:214.0/255.0 alpha:1];
+	}
+	_progressView.progressTintColor = progressColor;
+	float currentVersion = 7.0;
+	if ([[[UIDevice currentDevice] systemVersion] floatValue] >= currentVersion)
+	{
+		_progressView.frame = CGRectMake( -5, 0, parentView.bounds.size.width+10, 1 );
+		CGAffineTransform transform = CGAffineTransformMakeScale(1.0f, 5.0f);
+		_progressView.transform = transform;
+	}else{
+		_progressView.frame = CGRectMake( -5,-3, parentView.bounds.size.width+10, 1 );
+		CGAffineTransform transform = CGAffineTransformMakeScale(1.0f, 0.40f);
+		_progressView.transform = transform;
+	}
+	[parentView addSubview:_progressView];
 
     id showSplashScreenSpinnerValue = [self.commandDelegate.settings objectForKey:[@"ShowSplashScreenSpinner" lowercaseString]];
     // backwards compatibility - if key is missing, default to true
@@ -108,42 +138,94 @@
     [parentView addObserver:self forKeyPath:@"bounds" options:0 context:nil];
 
     [self updateImage];
+   	[_progressView setProgress:0.08];
 }
 
 - (void)destroyViews
 {
     [_imageView removeFromSuperview];
     [_activityView removeFromSuperview];
-		[_statusLabel removeFromSuperview];
+		if(_statusLabelVisible==true){
+			[_statusLabel removeFromSuperview];
+		}
+		[_progressView removeFromSuperview];
     _imageView = nil;
     _activityView = nil;
     _curImageName = nil;
 	  _statusLabel = nil;
-	
+	_progressView = nil;
 
     self.viewController.view.userInteractionEnabled = YES;  // re-enable user interaction upon completion
     [self.viewController.view removeObserver:self forKeyPath:@"frame"];
     [self.viewController.view removeObserver:self forKeyPath:@"bounds"];
 }
 
-// Sets the view's frame and image.
-- (void)updateImage
+- (CDV_iOSDevice) getCurrentDevice
 {
-    UIInterfaceOrientation orientation = self.viewController.interfaceOrientation;
+    CDV_iOSDevice device;
+    
+    UIScreen* mainScreen = [UIScreen mainScreen];
+    CGFloat mainScreenHeight = mainScreen.bounds.size.height;
+    CGFloat mainScreenWidth = mainScreen.bounds.size.width;
+    
+    int limit = MAX(mainScreenHeight,mainScreenWidth);
+    
+    device.iPad = (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad);
+    device.iPhone = (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone);
+    device.retina = ([mainScreen scale] == 2.0);
+    device.iPhone5 = (device.iPhone && limit == 568.0);
+    // note these below is not a true device detect, for example if you are on an
+    // iPhone 6/6+ but the app is scaled it will prob set iPhone5 as true, but
+    // this is appropriate for detecting the runtime screen environment
+    device.iPhone6 = (device.iPhone && limit == 667.0);
+    device.iPhone6Plus = (device.iPhone && limit == 736.0);
+    
+    return device;
+}
 
+- (NSString*)getImageName:(UIInterfaceOrientation)currentOrientation delegate:(id<CDVScreenOrientationDelegate>)orientationDelegate device:(CDV_iOSDevice)device
+{
     // Use UILaunchImageFile if specified in plist.  Otherwise, use Default.
     NSString* imageName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"UILaunchImageFile"];
 
+    NSUInteger supportedOrientations = [orientationDelegate supportedInterfaceOrientations];
+    
+    // Checks to see if the developer has locked the orientation to use only one of Portrait or Landscape
+    BOOL supportsLandscape = (supportedOrientations & UIInterfaceOrientationMaskLandscape);
+    BOOL supportsPortrait = (supportedOrientations & UIInterfaceOrientationMaskPortrait || supportedOrientations & UIInterfaceOrientationMaskPortraitUpsideDown);
+    // this means there are no mixed orientations in there
+    BOOL isOrientationLocked = !(supportsPortrait && supportsLandscape);
+    
     if (imageName) {
         imageName = [imageName stringByDeletingPathExtension];
     } else {
         imageName = @"Default";
     }
 
-    if (CDV_IsIPhone5()) {
+    if (device.iPhone5) { // does not support landscape
         imageName = [imageName stringByAppendingString:@"-568h"];
-    } else if (CDV_IsIPad()) {
-        switch (orientation) {
+    } else if (device.iPhone6) { // does not support landscape
+        imageName = [imageName stringByAppendingString:@"-667h"];
+    } else if (device.iPhone6Plus) { // supports landscape
+        if (isOrientationLocked) {
+            imageName = [imageName stringByAppendingString:(supportsLandscape ? @"-Landscape" : @"")];
+        } else {
+            switch (currentOrientation) {
+                case UIInterfaceOrientationLandscapeLeft:
+                case UIInterfaceOrientationLandscapeRight:
+                        imageName = [imageName stringByAppendingString:@"-Landscape"];
+                    break;
+                default:
+                    break;
+            }
+        }
+        imageName = [imageName stringByAppendingString:@"-736h"];
+
+    } else if (device.iPad) { // supports landscape
+        if (isOrientationLocked) {
+            imageName = [imageName stringByAppendingString:(supportsLandscape ? @"-Landscape" : @"-Portrait")];
+        } else {
+            switch (currentOrientation) {
             case UIInterfaceOrientationLandscapeLeft:
             case UIInterfaceOrientationLandscapeRight:
                 imageName = [imageName stringByAppendingString:@"-Landscape"];
@@ -156,6 +238,15 @@
                 break;
         }
     }
+    }
+    
+    return imageName;
+}
+
+// Sets the view's frame and image.
+- (void)updateImage
+{
+    NSString* imageName = [self getImageName:self.viewController.interfaceOrientation delegate:(id<CDVScreenOrientationDelegate>)self.viewController device:[self getCurrentDevice]];
 
     if (![imageName isEqualToString:_curImageName]) {
         UIImage* img = [UIImage imageNamed:imageName];
@@ -174,9 +265,22 @@
 - (void)updateBounds
 {
     UIImage* img = _imageView.image;
-    CGRect imgBounds = CGRectMake(0, 0, img.size.width, img.size.height);
+    CGRect imgBounds = (img) ? CGRectMake(0, 0, img.size.width, img.size.height) : CGRectZero;
 
     CGSize screenSize = [self.viewController.view convertRect:[UIScreen mainScreen].bounds fromView:nil].size;
+    UIInterfaceOrientation orientation = self.viewController.interfaceOrientation;
+    CGAffineTransform imgTransform = CGAffineTransformIdentity;
+
+    /* If and only if an iPhone application is landscape-only as per
+     * UISupportedInterfaceOrientations, the view controller's orientation is
+     * landscape. In this case the image must be rotated in order to appear
+     * correctly.
+     */
+    BOOL isIPad = [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad;
+    if (UIInterfaceOrientationIsLandscape(orientation) && !isIPad) {
+        imgTransform = CGAffineTransformMakeRotation(M_PI / 2);
+        imgBounds.size = CGSizeMake(imgBounds.size.height, imgBounds.size.width);
+    }
 
     // There's a special case when the image is the size of the screen.
     if (CGSizeEqualToSize(screenSize, imgBounds.size)) {
@@ -184,7 +288,7 @@
         if (!(IsAtLeastiOSVersion(@"7.0"))) {
             imgBounds.origin.y -= statusFrame.size.height;
         }        
-    } else {
+    } else if (imgBounds.size.width > 0) {
         CGRect viewBounds = self.viewController.view.bounds;
         CGFloat imgAspect = imgBounds.size.width / imgBounds.size.height;
         CGFloat viewAspect = viewBounds.size.width / viewBounds.size.height;
@@ -199,6 +303,7 @@
         imgBounds.size.width *= ratio;
     }
 
+    _imageView.transform = imgTransform;
     _imageView.frame = imgBounds;
 }
 
@@ -226,27 +331,50 @@
     } else if (fadeDuration == 0) {
         [self destroyViews];
     } else {
+      __weak __typeof(self) weakSelf = self;
+
         [UIView transitionWithView:self.viewController.view
                           duration:fadeDuration
                            options:UIViewAnimationOptionTransitionNone
                         animations:^(void) {
-            [_imageView setAlpha:0];
-            [_activityView setAlpha:0];
+                          __typeof(self) strongSelf = weakSelf;
+                          if (strongSelf != nil) {
+                              dispatch_async(dispatch_get_main_queue(), ^{
+                                      [strongSelf->_activityView setAlpha:0];
+                                      [strongSelf->_imageView setAlpha:0];
+                              });
+                          }
         }
-
                         completion:^(BOOL finished) {
-            [self destroyViews];
-        }];
+                          if (finished) {
+                              dispatch_async(dispatch_get_main_queue(), ^{
+                                      [weakSelf destroyViews];
+                              });
+                          }
+                      }
+      ];      
     }
 }
 
 - (void) setStatusText:(CDVInvokedUrlCommand*)command
 {
-	
+	if(_statusLabelVisible==FALSE){
+		
+		//[self.viewController.view addSubview:_statusLabel];
+		//_statusLabelVisible = TRUE;
+	}
 	NSString *text = [command.arguments objectAtIndex:0];
 	_statusLabel.text = text;
 	
 }
+
+- (void) setProgress:(CDVInvokedUrlCommand*)command
+{
+	
+	NSString *progress = [command.arguments objectAtIndex:0];
+	[_progressView setProgress:[progress floatValue]];
+}
+
 
 
 @end

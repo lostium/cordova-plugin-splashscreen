@@ -20,16 +20,28 @@
 #import <Foundation/Foundation.h>
 #import <Cordova/CDVPlugin.h>
 
+typedef struct {
+    BOOL iPhone;
+    BOOL iPad;
+    BOOL iPhone5;
+    BOOL iPhone6;
+    BOOL iPhone6Plus;
+    BOOL retina;
+    
+} CDV_iOSDevice;
+
 @interface CDVSplashScreen : CDVPlugin {
     UIActivityIndicatorView* _activityView;
     UIImageView* _imageView;
     NSString* _curImageName;
     UILabel* _statusLabel;
+		UIProgressView *_progressView;
     BOOL _visible;
+	  BOOL _statusLabelVisible;
 }
 
 - (void)show:(CDVInvokedUrlCommand*)command;
 - (void)hide:(CDVInvokedUrlCommand*)command;
 - (void)setStatusText:(CDVInvokedUrlCommand*)command;
-
+- (void)setProgress:(CDVInvokedUrlCommand*)command;
 @end

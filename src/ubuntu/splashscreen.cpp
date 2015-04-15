@@ -1,5 +1,7 @@
 /*
  *
+ * Copyright 2013 Canonical Ltd.
+ *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,15 +21,22 @@
  *
 */
 
-var exec = require('cordova/exec');
+#include <QQuickItem>
 
-var splashscreen = {
-    show:function() {
-        exec(null, null, "SplashScreen", "show", []);
-    },
-    hide:function() {
-        exec(null, null, "SplashScreen", "hide", []);
-    }
-};
+#include "splashscreen.h"
+#include <cordova.h>
 
-module.exports = splashscreen;
+#define SPLASHSCREEN_STATE_NAME "splashscreen"
+
+Splashscreen::Splashscreen(Cordova *cordova): CPlugin(cordova) {
+}
+
+void Splashscreen::show(int, int) {
+    m_cordova->rootObject()->setProperty("splashscreenPath", m_cordova->getSplashscreenPath());
+
+    m_cordova->pushViewState(SPLASHSCREEN_STATE_NAME);
+}
+
+void Splashscreen::hide(int, int) {
+    m_cordova->popViewState(SPLASHSCREEN_STATE_NAME);
+}
