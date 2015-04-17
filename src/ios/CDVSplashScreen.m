@@ -330,18 +330,14 @@
         animations : ^(void) {
             __typeof(self) strongSelf = weakSelf;
             if (strongSelf != nil) {
-
                 dispatch_async(dispatch_get_main_queue(), ^ {
                     [strongSelf->_activityView setAlpha : 0];
                     [strongSelf->_imageView setAlpha : 0];
                 });
             }
         }
-
-completion:
-        ^(BOOL finished) {
+                      completion:^(BOOL finished) {
             if (finished) {
-
                 dispatch_async(dispatch_get_main_queue(), ^ {
                     [weakSelf destroyViews];
                 });

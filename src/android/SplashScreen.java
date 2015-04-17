@@ -128,14 +128,23 @@ public class SplashScreen extends CordovaPlugin {
                     webView.postMessage("splashscreen", "hide");
                 }
             });
-        } else if (action.equals("show")){
-            this.webView.postMessage("splashscreen", "show");
-        } else if (action.equals("setStatusText")){
-            
-        } else if (action.equals("setProgress")){
-            
-        }
-        else {
+        } else if (action.equals("show")) {
+            cordova.getActivity().runOnUiThread(new Runnable() {
+                public void run() {
+                    webView.postMessage("splashscreen", "show");
+                }
+            });
+        } else if (action.equals("spinnerStart")) {
+            if (!HAS_BUILT_IN_SPLASH_SCREEN) {
+                final String title = args.getString(0);
+                final String message = args.getString(1);
+                cordova.getActivity().runOnUiThread(new Runnable() {
+                    public void run() {
+                        spinnerStart(title, message);
+                    }
+                });
+            }
+        } else {
             return false;
         }
 
@@ -143,4 +152,176 @@ public class SplashScreen extends CordovaPlugin {
         return true;
     }
 
+    @Override
+    public Object onMessage(String id, Object data) {
+        if (HAS_BUILT_IN_SPLASH_SCREEN) {
+            return null;
+        }
+        if ("splashscreen".equals(id)) {
+            if ("hide".equals(data.toString())) {
+                this.removeSplashScreen();
+            } else {
+                this.showSplashScreen(false);
+            }
+        } else if ("spinner".equals(id)) {
+            if ("stop".equals(data.toString())) {
+                this.spinnerStop();
+                getView().setVisibility(View.VISIBLE);
+            }
+        } else if ("onReceivedError".equals(id)) {
+            spinnerStop();
+        }
+        return null;
+    }
+
+    // Don't add @Override so that plugin still compiles on 3.x.x for a while
+    public void onConfigurationChanged(Configuration newConfig) {
+        if (newConfig.orientation != orientation) {
+            orientation = newConfig.orientation;
+
+            // Splash drawable may change with orientation, so reload it.
+            if (splashImageView != null) {
+                int drawableId = preferences.getInteger("SplashDrawableId", 0);
+                if (drawableId != 0) {
+                    splashImageView.setImageDrawable(cordova.getActivity().getResources().getDrawable(drawableId));
+                }
+            }
+        }
+    }
+
+    private void removeSplashScreen() {
+        cordova.getActivity().runOnUiThread(new Runnable() {
+            public void run() {
+                if (splashDialog != null && splashDialog.isShowing()) {
+                    splashDialog.dismiss();
+                    splashDialog = null;
+                    splashImageView = null;
+                }
+            }
+        });
+    }
+
+    /**
+     * Shows the splash screen over the full Activity
+     */
+    @SuppressWarnings("deprecation")
+    private void showSplashScreen(final boolean hideAfterDelay) {
+        final int splashscreenTime = preferences.getInteger("SplashScreenDelay", 3000);
+        final int drawableId = preferences.getInteger("SplashDrawableId", 0);
+
+        // If the splash dialog is showing don't try to show it again
+        if (splashDialog != null && splashDialog.isShowing()) {
+            return;
+        }
+        if (drawableId == 0 || (splashscreenTime <= 0 && hideAfterDelay)) {
+            return;
+        }
+
+        cordova.getActivity().runOnUiThread(new Runnable() {
+            public void run() {
+                // Get reference to display
+                Display display = cordova.getActivity().getWindowManager().getDefaultDisplay();
+                Context context = webView.getContext();
+
+                // Use an ImageView to render the image because of its flexible scaling options.
+                splashImageView = new ImageView(context);
+                splashImageView.setImageResource(drawableId);
+                LayoutParams layoutParams = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT);
+                splashImageView.setLayoutParams(layoutParams);
+
+                splashImageView.setMinimumHeight(display.getHeight());
+                splashImageView.setMinimumWidth(display.getWidth());
+
+                // TODO: Use the background color of the webView's parent instead of using the preference.
+                splashImageView.setBackgroundColor(preferences.getInteger("backgroundColor", Color.BLACK));
+
+                if (isMaintainAspectRatio()) {
+                    // CENTER_CROP scale mode is equivalent to CSS "background-size:cover"
+                    splashImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                }
+                else {
+                    // FIT_XY scales image non-uniformly to fit into image view.
+                    splashImageView.setScaleType(ImageView.ScaleType.FIT_XY);
+                }
+
+                // Create and show the dialog
+                splashDialog = new Dialog(context, android.R.style.Theme_Translucent_NoTitleBar);
+                // check to see if the splash screen should be full screen
+                if ((cordova.getActivity().getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                        == WindowManager.LayoutParams.FLAG_FULLSCREEN) {
+                    splashDialog.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                            WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                }
+                splashDialog.setContentView(splashImageView);
+                splashDialog.setCancelable(false);
+                splashDialog.show();
+
+                // Set Runnable to remove splash screen just in case
+                if (hideAfterDelay) {
+                    final Handler handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        public void run() {
+                            removeSplashScreen();
+                        }
+                    }, splashscreenTime);
+                }
+            }
+        });
+    }
+
+    /*
+     * Load the spinner
+     */
+    private void loadSpinner() {
+        // If loadingDialog property, then show the App loading dialog for first page of app
+        String loading = null;
+        if (webView.canGoBack()) {
+            loading = preferences.getString("LoadingDialog", null);
+        }
+        else {
+            loading = preferences.getString("LoadingPageDialog", null);
+        }
+        if (loading != null) {
+            String title = "";
+            String message = "Loading Application...";
+
+            if (loading.length() > 0) {
+                int comma = loading.indexOf(',');
+                if (comma > 0) {
+                    title = loading.substring(0, comma);
+                    message = loading.substring(comma + 1);
+                }
+                else {
+                    title = "";
+                    message = loading;
+                }
+            }
+            spinnerStart(title, message);
+        }
+    }
+
+    private void spinnerStart(final String title, final String message) {
+        cordova.getActivity().runOnUiThread(new Runnable() {
+            public void run() {
+                spinnerStop();
+                spinnerDialog = ProgressDialog.show(webView.getContext(), title, message, true, true,
+                        new DialogInterface.OnCancelListener() {
+                            public void onCancel(DialogInterface dialog) {
+                                spinnerDialog = null;
+                            }
+                        });
+            }
+        });
+    }
+
+    private void spinnerStop() {
+        cordova.getActivity().runOnUiThread(new Runnable() {
+            public void run() {
+                if (spinnerDialog != null && spinnerDialog.isShowing()) {
+                    spinnerDialog.dismiss();
+                    spinnerDialog = null;
+                }
+            }
+        });
+    }
 }
